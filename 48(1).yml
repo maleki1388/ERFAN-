@@ -1,0 +1,77 @@
+name: Build CYRUS UI APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Flutter app
+        run: flutter create --platforms android --project-name cyrus_ui app
+
+      - name: Write standalone app
+        working-directory: app
+        run: |
+          cat > pubspec.yaml <<'EOF'
+          name: cyrus_ui
+          description: CYRUS standalone UI prototype
+          publish_to: none
+          version: 2.0.0+2
+          environment:
+            sdk: '>=3.2.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+          flutter:
+            uses-material-design: true
+          EOF
+          mkdir -p lib
+          cat > lib/main.dart <<'EOF'
+          import 'package:flutter/material.dart';
+          void main()=>runApp(const Cyrus());
+          const bg=Color(0xFF050816), cyan=Color(0xFF21D9FF), purple=Color(0xFFAD45FF), panel=Color(0xFF0B1225);
+          class Cyrus extends StatelessWidget { const Cyrus({super.key}); @override Widget build(BuildContext c)=>MaterialApp(debugShowCheckedModeBanner:false,theme:ThemeData.dark().copyWith(scaffoldBackgroundColor:bg,colorScheme:const ColorScheme.dark(primary:cyan),useMaterial3:true),home:const Shell());}
+          class Shell extends StatefulWidget {const Shell({super.key}); @override State<Shell> createState()=>_S();}
+          class _S extends State<Shell>{
+            int tab=0; bool demo=false,notif=true,compact=false; final items=['Tehran • نمونه','Frankfurt • نمونه','Tokyo • نمونه']; final icons=[Icons.home,Icons.grid_view,Icons.insights,Icons.settings]; final labels=['خانه','فهرست','آمار','تنظیمات'];
+            @override Widget build(BuildContext c)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(body:SafeArea(child:Column(children:[header(),Expanded(child:IndexedStack(index:tab,children:[home(),list(),stats(),settings()])),nav()]))));
+            Widget header()=>Padding(padding:const EdgeInsets.all(12),child:Row(children:[IconButton(onPressed:()=>setState(()=>tab=3),icon:const Icon(Icons.menu,color:cyan)),const Spacer(),const Column(children:[Text('CYRUS',style:TextStyle(fontSize:32,fontWeight:FontWeight.w900,fontStyle:FontStyle.italic,letterSpacing:3)),Text('YOUR DIGITAL SPACE',style:TextStyle(color:cyan,fontSize:9,letterSpacing:2))]),const Spacer(),Icon(Icons.palette_outlined,color:purple)]));
+            Widget home()=>ListView(padding:const EdgeInsets.all(16),children:[Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:18,vertical:10),decoration:BoxDecoration(border:Border.all(color:demo?Colors.green:cyan),borderRadius:BorderRadius.circular(30)),child:Text(demo?'حالت نمایشی روشن':'آماده به کار',style:TextStyle(color:demo?Colors.green:Colors.white70)))),const SizedBox(height:18),Center(child:GestureDetector(onTap:()=>setState(()=>demo=!demo),child:SizedBox(width:270,height:270,child:Stack(alignment:Alignment.center,children:[Container(width:265,height:265,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:cyan.withOpacity(.3)))),Container(width:235,height:235,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:purple,width:2),boxShadow:[BoxShadow(color:purple.withOpacity(.18),blurRadius:20)])),Container(width:205,height:205,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:cyan,width:2),color:Colors.black26)),Column(mainAxisAlignment:MainAxisAlignment.center,children:[Icon(demo?Icons.check_circle_outline:Icons.shield_outlined,color:cyan,size:52),Text(demo?'روشن':'شروع',style:const TextStyle(fontSize:28,fontWeight:FontWeight.bold)),const Text('تعامل نمایشی',style:TextStyle(color:Colors.white54))])]))),const SizedBox(height:18),card(Icons.public,'مورد انتخاب‌شده','برای دیدن فهرست لمس کنید',()=>setState(()=>tab=1)),const SizedBox(height:12),Row(children:[Expanded(child:metric(Icons.bolt,'پینگ','—',purple)),const SizedBox(width:10),Expanded(child:metric(Icons.download,'دریافت','—',cyan))]),const SizedBox(height:10),Row(children:[Expanded(child:metric(Icons.upload,'ارسال','—',purple)),const SizedBox(width:10),Expanded(child:metric(Icons.timer,'مدت','00:00',cyan))]),const SizedBox(height:12),note('این APK فقط نمونه رابط کاربری است؛ اتصال و اعداد شبکه واقعی نیستند.')]);
+            Widget metric(IconData i,String t,String v,Color color)=>Container(height:105,padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(16),border:Border.all(color:color.withOpacity(.35))),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Icon(i,color:color),Text(t,style:const TextStyle(color:Colors.white70)),const Spacer(),Text(v,style:TextStyle(color:color,fontSize:22,fontWeight:FontWeight.bold))]));
+            Widget card(IconData i,String t,String s,VoidCallback f)=>Card(color:panel,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(17),side:BorderSide(color:cyan.withOpacity(.35))),child:ListTile(onTap:f,leading:Icon(i,color:cyan),title:Text(t),subtitle:Text(s,style:const TextStyle(color:Colors.white54)),trailing:const Icon(Icons.chevron_left,color:cyan)));
+            Widget list()=>ListView(padding:const EdgeInsets.all(16),children:[const Text('فهرست نمونه',style:TextStyle(fontSize:24,fontWeight:FontWeight.bold)),...items.asMap().entries.map((e)=>Card(color:panel,child:ListTile(title:Text(e.value),leading:const Icon(Icons.folder,color:cyan),trailing:IconButton(icon:const Icon(Icons.delete_outline),onPressed:()=>setState(()=>items.removeAt(e.key))))),OutlinedButton.icon(onPressed:()=>addItem(),icon:const Icon(Icons.add),label:const Text('افزودن مورد')),note('این فهرست فقط نمونه محلی است.')]);
+            void addItem(){final x=TextEditingController();showDialog(context:context,builder:(d)=>AlertDialog(title:const Text('مورد جدید'),content:TextField(controller:x),actions:[TextButton(onPressed:()=>Navigator.pop(d),child:const Text('لغو')),TextButton(onPressed:(){if(x.text.trim().isNotEmpty)setState(()=>items.add(x.text.trim()));Navigator.pop(d);},child:const Text('افزودن'))]));}
+            Widget stats()=>ListView(padding:const EdgeInsets.all(16),children:[const Text('آمار',style:TextStyle(fontSize:24,fontWeight:FontWeight.bold)),const SizedBox(height:12),Row(children:[Expanded(child:metric(Icons.timeline,'فعالیت','—',cyan)),const SizedBox(width:10),Expanded(child:metric(Icons.storage,'داده','0',purple))]),const SizedBox(height:12),Container(height:200,decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(18)),child:const Center(child:Text('داده‌ای برای نمایش وجود ندارد',style:TextStyle(color:Colors.white54)))),note('اطلاعات زنده در این نمونه جمع‌آوری نمی‌شود.')]);
+            Widget settings()=>ListView(padding:const EdgeInsets.all(16),children:[const Text('تنظیمات',style:TextStyle(fontSize:24,fontWeight:FontWeight.bold)),SwitchListTile(title:const Text('اعلان‌ها'),value:notif,onChanged:(v)=>setState(()=>notif=v)),SwitchListTile(title:const Text('نمای فشرده'),value:compact,onChanged:(v)=>setState(()=>compact=v)),note('CYRUS UI Prototype • نسخه 2.0')]);
+            Widget note(String t)=>Container(margin:const EdgeInsets.only(top:12),padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:panel,borderRadius:BorderRadius.circular(15),border:Border.all(color:Colors.white12)),child:Text(t,style:const TextStyle(color:Colors.white54,fontSize:12)));
+            Widget nav()=>Container(margin:const EdgeInsets.all(10),padding:const EdgeInsets.symmetric(vertical:9),decoration:BoxDecoration(color:const Color(0xFF080D1B),borderRadius:BorderRadius.circular(20),border:Border.all(color:purple.withOpacity(.5))),child:Row(children:List.generate(4,(i)=>Expanded(child:InkWell(onTap:()=>setState(()=>tab=i),child:Column(children:[Icon(icons[i],color:tab==i?cyan:Colors.white38),Text(labels[i],style:TextStyle(color:tab==i?cyan:Colors.white54,fontSize:11))])))));
+          }
+          EOF
+
+      - name: Get packages
+        working-directory: app
+        run: flutter pub get
+
+      - name: Check Dart code
+        working-directory: app
+        run: flutter analyze --no-pub
+
+      - name: Build release APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CYRUS-UI-APK
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
